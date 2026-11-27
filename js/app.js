@@ -6,15 +6,17 @@ function render(){
   else if(!S.cfg)out=viewSetup();
   else if(!S.role)out=viewLogin();
   else{
+    if(S.role==='emp'&&(!S.staff[S.empId]||!canLogin(S.staff[S.empId])||!cfg().staffOpen)){S.role=null;S.empId=null;ssSet('sess',null);setTimeout(()=>toast('Your access has been closed. Please contact your in-charge.',true),50);return render()}
     let v;
     if(isAdmin()){v={overview:viewOverview,team:viewTeam,targets:viewTargets,data:viewData,bigbasket:viewBig,watch:viewWatch,explain:viewExplain,reports:viewReports,settings:viewSettings}[S.view]();}
     else if(S.empTab==='home')v=viewEmpHome();
     else if(S.empTab==='explainme')v=viewEmpExplain();
     else{const st=S.staff[S.empId];v=st?html`<div class="card"><div class="row" style="margin-bottom:12px">${avatar(st,'lg')}<div><h2>${st.name}</h2><div class="muted">${st.designation} · ${st.section}</div></div></div></div>${readOnlyDetails(st)}`:'';}
-    const warn='';
+    const warn=isAdmin()&&!(window.claude&&window.claude.shared)?html`<div class="note bad" style="border-left-color:var(--crit);background:var(--crit-soft);margin-bottom:12px"><b>This device only.</b> The shared database is not connected, so employees cannot see this data on their own phones yet. Add the Supabase keys in <code>js/config.js</code>.</div>`:'';
     out=html`${masthead()}<main>${warn}${v}</main>${viewDrawer()}${viewModal()}`;
   }
   app.innerHTML=val(out);
+  if(lang()==='bn')applyLang(app);document.documentElement.lang=lang();
   if(sy)window.scrollTo(0,sy);
 }
 function openProfile(id,tab){S.drawer={emp:id,tab:tab||'perf',photo:undefined,formDraft:null};schedule()}
@@ -88,11 +90,11 @@ async function saveSales(){
   S.busy=null;S.upload=null;schedule();
 }
 async function saveTargets(){
-  const u=S.upload;if(!u||!u.res)return;const r=u.res;const useDays=$('#tu-days').checked,useW=$('#tu-w').checked,addSt=$('#tu-st').checked;
+  const u=S.upload;if(!u||!u.res)return;const r=u.res;const useDays=$('#tu-days').checked,useW=$('#tu-w').checked,addSt=$('#tu-st').checked,from=($('#tu-from')||{}).value||'';
   S.busy='Saving…';
   await guard(async()=>{
     for(const m of r.months){const cur=S.targets[m]||{days:{},weights:{}};
-      await S.db.doc('targets/'+m).set({days:useDays?r.days[m]:(cur.days||{}),weights:useW?r.weights[m]:(cur.weights||{})})}
+      let doc=Object.assign({},cur,{days:useDays?r.days[m]:(cur.days||{})});if(useW)doc=withWeights(doc,m,r.weights[m],from);await S.db.doc('targets/'+m).set(doc)}
     if(addSt){for(const id in r.staffRecs)if(!S.staff[id]){const s=r.staffRecs[id];const code=String(Math.floor(100000+Math.random()*900000));await S.db.doc('staff/'+id).set(Object.assign({},s,{codeHash:await sha(cfg().salt+id+':'+code)}));await setCode(id,code)}}
   },'Targets saved.');
   S.busy=null;S.upload=null;schedule();
@@ -119,7 +121,7 @@ async function runSeed(){
 /* ============ photo ============ */
 function resizePhoto(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const M=260,k=Math.min(1,M/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',0.82))};im.onerror=()=>rej(new Error('That image could not be read.'));im.src=fr.result};fr.onerror=()=>rej(new Error('That image could not be read.'));fr.readAsDataURL(file)})}
 const val$=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
-function readStaffForm(){const g=val$;return {name:tcase(g('sd-name')),id:g('sd-id'),designation:g('sd-designation'),section:g('sd-section'),joining:g('sd-joining'),status:g('sd-status')||'Continue',resign:g('sd-resign'),dayOff:g('sd-dayOff'),emptype:g('sd-emptype'),prevexp:g('sd-prevexp'),mobile:g('sd-mobile'),email:g('sd-email'),dob:g('sd-dob'),blood:g('sd-blood'),emergency:g('sd-emergency'),education:g('sd-education'),address:g('sd-address'),notes:g('sd-notes')}}
+function readStaffForm(){const g=val$;return {name:tcase(g('sd-name')),id:g('sd-id'),designation:g('sd-designation'),section:g('sd-section'),joining:g('sd-joining'),status:g('sd-status')||'Continue',resign:g('sd-resign'),dayOff:g('sd-dayOff'),emptype:g('sd-emptype'),prevexp:g('sd-prevexp'),mobile:g('sd-mobile'),email:g('sd-email'),dob:g('sd-dob'),blood:g('sd-blood'),access:g('sd-access')||'Allowed',emergency:g('sd-emergency'),education:g('sd-education'),address:g('sd-address'),notes:g('sd-notes')}}
 
 /* ============ downloads ============ */
 async function saveFile(name,data){
@@ -137,7 +139,9 @@ const A={
   applyCustom(){const f=val$('pf'),t=val$('pt');if(!f||!t||f>t){toast('Choose a valid date range.',true);return}S.period={key:'custom',from:f,to:t};schedule()},
   loginTab(a){S.loginTab=a;schedule()},
   async loginEmp(){const id=val$('l-id'),code=val$('l-code');const st=S.staff[id];
-    if(!st||st.status==='Resigned'||!st.codeHash||(await sha(cfg().salt+id+':'+code))!==st.codeHash){toast('ID or access code is not correct.',true);return}
+    if(!cfg().staffOpen){toast('Employee access is paused by management.',true);return}
+    if(st&&!canLogin(st)){toast('Your access has been closed. Please contact your in-charge.',true);return}
+    if(!st||!st.codeHash||(await sha(cfg().salt+id+':'+code))!==st.codeHash){toast('ID or access code is not correct.',true);return}
     S.role='emp';S.empId=id;S.empTab='home';ssSet('sess',JSON.stringify({role:'emp',empId:id}));setPeriod('month',true);schedule()},
   async loginAdmin(){const pw=val$('l-pw');if((await sha(cfg().salt+'admin:'+pw))!==cfg().adminHash){toast('Password is not correct.',true);return}
     S.role='admin';S.view='overview';ssSet('sess',JSON.stringify({role:'admin'}));schedule()},
@@ -166,12 +170,13 @@ const A={
     S.drawer=a==='new'?{emp:f.id,tab:'perf'}:Object.assign(S.drawer,{photo:undefined});schedule()},
   tgtMonth(a){S.tgtMonth=a;S.draftW=null;schedule()},
   async saveDays(){const days={};$$('.di').forEach(i=>{const v=+i.value;if(v>0)days[i.dataset.day]=v});const m=S.tgtMonth;const cur=S.targets[m]||{};
-    await guard(()=>S.db.doc('targets/'+m).set({days,weights:cur.weights||{}}),'Daily targets saved.')},
+    await guard(()=>S.db.doc('targets/'+m).set(Object.assign({},cur,{days})),'Daily targets saved.')},
   applySuggest(){const m=S.tgtMonth;const w={};suggestWeights(m).forEach(r=>w[r.id]=r.pct);S.draftW={m,w};schedule()},
-  copyPrev(a){const p=S.targets[a];if(!p||!p.weights||!Object.keys(p.weights).length){toast('That month has no shares to copy.',true);return}S.draftW={m:S.tgtMonth,w:Object.assign({},p.weights)};schedule()},
+  copyPrev(a){const p=S.targets[a];if(!p||!Object.keys(latestW(p)).length){toast('That month has no shares to copy.',true);return}S.draftW={m:S.tgtMonth,w:Object.assign({},latestW(p))};schedule()},
   normW(){const w=currentW();const t=Object.values(w).reduce((a,b)=>a+(+b||0),0)||1;const o={};for(const k in w)o[k]=Math.round(w[k]/t*1000)/10;S.draftW={m:S.tgtMonth,w:o};schedule()},
   async saveW(){const w={};const cw=currentW();for(const k in cw)if(+cw[k]>0)w[k]=+cw[k];const m=S.tgtMonth;const cur=S.targets[m]||{};
-    await guard(()=>S.db.doc('targets/'+m).set({days:cur.days||{},weights:w}),'Shares saved. Daily targets updated for everyone.');S.draftW=null;schedule()},
+    const from=val$('w-from');await guard(()=>S.db.doc('targets/'+m).set(withWeights(cur,m,w,from)),from&&from>m+'-01'?'Shares saved from '+dLabelY(from)+'. Earlier days keep their old shares.':'Shares saved. Daily targets updated for everyone.');S.draftW=null;schedule()},
+  async rmWv(a){const m=S.tgtMonth;const cur=S.targets[m]||{};await guard(()=>S.db.doc('targets/'+m).set(Object.assign({},cur,{wv:(cur.wv||[]).filter(x=>x.from!==a)})),'Share change removed.')},
   openUpload(a){S.upload=null;pickFile(a)},
   pick(a){pickFile(a)},
   saveSales,saveTargets,
@@ -190,6 +195,9 @@ const A={
   async exportXlsx(){S.busy='x';schedule();await guard(async()=>{const b=await buildXlsx();await saveFile(`${S.rep.title.replace(/\W+/g,'_')}_${stamp()}.xlsx`,b)});S.busy=null;schedule()},
   async exportPdf(){S.busy='x';schedule();await guard(async()=>{const b=await buildPdf();await saveFile(`${S.rep.title.replace(/\W+/g,'_')}_${stamp()}.pdf`,b)});S.busy=null;schedule()},
   async saveCfg(){const c=Object.assign({},S.cfg,{outlet:val$('s-outlet')||cfg().outlet,basis:val$('s-basis'),poorBelow:+val$('s-poor')||80});await guard(()=>S.db.doc('config/main').set(c),'Settings saved.')},
+  async saveVis(){const sees={};['rank','eval','days','big','bill'].forEach(k=>sees[k]=$('#vis-'+k).checked);const c=Object.assign({},S.cfg,{staffSees:sees,staffOpen:$('#vis-open').checked});await guard(()=>S.db.doc('config/main').set(c),'Employee view saved.')},
+  async setLang(a){setLang(a)},
+  async saveLang(){const c=Object.assign({},S.cfg,{lang:val$('s-lang')||'en'});try{localStorage.setItem('ph.lang',c.lang)}catch(e){}await guard(()=>S.db.doc('config/main').set(c),'Default language saved.')},
   async changePw(){const o=val$('pw-old'),n=val$('pw-new');if(n.length<6){toast('Use at least 6 characters.',true);return}
     if((await sha(cfg().salt+'admin:'+o))!==cfg().adminHash){toast('The current password is not correct.',true);return}
     await guard(async()=>S.db.doc('config/main').set(Object.assign({},S.cfg,{adminHash:await sha(cfg().salt+'admin:'+n)})),'Password changed.')},
@@ -207,7 +215,7 @@ const A={
     await guard(async()=>{const me=S.empId;const ref=S.db.doc('explanations/'+me);const cur=await ref.get();const items=cur.exists?(cur.data().items||[]):[];items.push(item);await ref.set({items})});
     if(!S.busy){S.justSent=item.id.slice(-6).toUpperCase()}schedule()}
 };
-function currentW(){const m=S.tgtMonth;const base=S.draftW&&S.draftW.m===m?S.draftW.w:Object.assign({},(S.targets[m]||{}).weights||{});return Object.assign({},base)}
+function currentW(){const m=S.tgtMonth;const base=S.draftW&&S.draftW.m===m?S.draftW.w:Object.assign({},latestW(S.targets[m]||{}));return Object.assign({},base)}
 function pickFile(kind){const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls,.csv';inp.onchange=()=>handleFile(kind,inp.files[0]);inp.click()}
 
 document.addEventListener('click',e=>{

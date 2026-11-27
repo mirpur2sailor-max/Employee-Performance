@@ -11,11 +11,11 @@ function noData(){return html`<div class="card"><div class="empty"><b>No sales d
 const hasData=()=>Object.keys(S.rows).length>0;
 
 /* ============ login / setup ============ */
-function viewLoading(){return html`<div class="login"><div class="hero"><h1>Sailor Performance Hub</h1><p>${S.loadErr||'Loading your outlet data…'}</p></div></div>`}
-function viewNoDb(){return html`<div class="login"><div class="hero"><h1>Sailor Performance Hub</h1><p>The data store could not be opened.</p></div><div class="card">Check js/config.js (Supabase URL and key) and your internet connection, then reload.</div></div>`}
+function viewLoading(){return html`<div class="login"><div class="hero"><h1>Performance Hub</h1><p>${S.loadErr||'Loading your outlet data…'}</p></div></div>`}
+function viewNoDb(){return html`<div class="login"><div class="hero"><h1>Performance Hub</h1><p>The data store could not be opened.</p></div><div class="card">Check js/config.js (Supabase URL and key) and your internet connection, then reload.</div></div>`}
 function viewSetup(){
   const st=S.setup;
-  if(!S.canEdit&&!S.isOwner)return html`<div class="login"><div class="hero"><h1>Sailor Performance Hub</h1><p>This outlet has not been set up yet.</p></div><div class="card">The outlet administrator has to open the app once and finish the setup.</div></div>`;
+  if(!S.canEdit&&!S.isOwner)return html`<div class="login"><div class="hero"><h1>Performance Hub</h1><p>This outlet has not been set up yet.</p></div><div class="card">The outlet administrator has to open the app once and finish the setup.</div></div>`;
   return html`<div class="login"><div class="hero"><h1>Set up your outlet</h1><p>One-time setup. You become the administrator.</p></div>
   <div class="card"><div class="form">
    <div class="f full"><label for="su-outlet">Outlet name</label><input id="su-outlet" value="Mirpur-2 Outlet"></div>
@@ -27,7 +27,8 @@ function viewSetup(){
 }
 function viewLogin(){
   const t=S.loginTab;
-  return html`<div class="login"><div class="hero"><h1>Sailor Performance Hub</h1><p>${cfg().outlet} · live sales performance</p></div>
+  return html`<div class="login"><div class="hero"><img src="img/logo-white.png" alt="Sailor" class="herologo"><h1>Performance Hub</h1><p>${cfg().outlet} · live sales performance</p></div>
+  <div class="row" style="justify-content:flex-end;margin:-4px 0 8px"><button class="btn sm" data-act="setLang" data-arg="${lang()==='bn'?'en':'bn'}">${lang()==='bn'?'English':'বাংলা'}</button></div>
   <div class="seg"><button class="${t==='emp'?'on':''}" data-act="loginTab" data-arg="emp">Employee</button><button class="${t==='admin'?'on':''}" data-act="loginTab" data-arg="admin">Admin</button></div>
   <div class="card">${t==='reset'?html`<div class="form" style="grid-template-columns:1fr"><div class="note">You are the page owner, so you can set a new admin password.</div><div class="f"><label for="l-new">New admin password</label><input id="l-new" type="password" autocomplete="new-password"></div><button class="btn pri" data-act="ownerSetPw">Set password and open admin</button><button class="btn sm" data-act="loginTab" data-arg="admin">Back</button></div>`:t==='emp'?html`<div class="form" style="grid-template-columns:1fr">
     <div class="f"><label for="l-id">Employee ID</label><input id="l-id" inputmode="numeric" autocomplete="username" placeholder="e.g. 195975"></div>
@@ -43,8 +44,8 @@ function masthead(){
   const me=S.role==='emp'?S.staff[S.empId]:null;
   const tabs=isAdmin()?ADMIN_TABS:[['home','My Performance'],['profile','My Profile'],['explainme','Explanations']];
   const cur=isAdmin()?S.view:S.empTab;
-  return html`<div class="mast"><div class="mast-row"><div class="brand">Sailor <small>${cfg().outlet} · Performance Hub</small></div><span class="sp"></span>
-   <div class="who">${me?avatar(me):''}<span>${isAdmin()?'Administrator':me?me.name:''}</span><button class="btn sm ghost" data-act="logout">Log out</button></div></div>
+  return html`<div class="mast"><div class="mast-row"><div class="brand"><img src="img/logo-white.png" alt="Sailor" class="logo"><span class="pname">Performance Hub<small>${cfg().outlet}</small></span></div><span class="sp"></span>
+   <div class="who"><button class="btn sm ghost lang" data-act="setLang" data-arg="${lang()==='bn'?'en':'bn'}" title="Language">${lang()==='bn'?'English':'বাংলা'}</button>${me?avatar(me):''}<span>${isAdmin()?'Administrator':me?me.name:''}</span><button class="btn sm ghost" data-act="logout">Log out</button></div></div>
    <div class="tabs" role="tablist">${tabs.map(([k,l])=>html`<button class="tab ${cur===k?'on':''}" data-act="${isAdmin()?'nav':'empnav'}" data-arg="${k}" role="tab">${l}</button>`)}</div></div>`;
 }
 
@@ -123,7 +124,7 @@ function viewTeam(){
 /* ============ Targets ============ */
 function viewTargets(){
   const m=S.tgtMonth;const t=S.targets[m]||{days:{},weights:{}};const n=+monthEnd(m).slice(8);
-  const W=S.draftW&&S.draftW.m===m?S.draftW.w:Object.assign({},t.weights||{});
+  const W=S.draftW&&S.draftW.m===m?S.draftW.w:Object.assign({},latestW(t));
   const sug=Object.fromEntries(suggestWeights(m).map(r=>[r.id,r]));
   const list=staffList().filter(s=>W[s.id]>0||(sug[s.id]&&isActiveNow(s)&&activeOn(s,monthEnd(m)))).sort((a,b)=>(+W[b.id]||0)-(+W[a.id]||0));
   const sumW=list.reduce((a,s)=>a+(+W[s.id]||0),0);const dt=outletMonthTarget(m);
@@ -135,7 +136,7 @@ function viewTargets(){
     return html`<tr><td>${personCell(s)}</td><td>${s.section||''}</td><td class="r num">${ex<1?'<1 mo':ex.toFixed(0)+' mo'}</td>
     <td class="r num small" title="${sg?`Designation ${sg.base} × Section ${sg.sec} × Performance ${sg.perf.toFixed(2)} × Experience ${sg.exp}`:''}">${sg?sg.pct.toFixed(1)+'%':'–'}</td>
     <td class="r" style="width:96px"><input class="wi" data-emp="${s.id}" type="number" step="0.1" min="0" value="${W[s.id]||0}" style="text-align:right"></td>
-    <td class="r num">${taka(mt)}</td><td class="r num small muted">${s.dayOff||'–'}</td></tr>`}).join('');
+    <td class="r num">${taka(mt)}</td><td class="r num small muted">${s.dayOff||'–'}</td></tr>`});
   const days=rangeDays(m+'-01',monthEnd(m));
   const matrix=html`<div class="tw" style="max-height:420px"><table class="matrix"><thead><tr><th>Employee</th>${days.map(d=>html`<th title="${WD[dowOf(d)]}">${+d.slice(8)}<br><span style="font-weight:400">${WD[dowOf(d)].slice(0,2)}</span></th>`)}<th>Total</th></tr></thead><tbody>
    <tr><td><b>Outlet target</b></td>${days.map(d=>html`<td><b>${short(+(t.days||{})[+d.slice(8)]||0)}</b></td>`)}<td><b>${short(dt)}</b></td></tr>
@@ -150,10 +151,12 @@ function viewTargets(){
    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px">${days.map(d=>html`<div class="f"><label for="d${+d.slice(8)}">${+d.slice(8)} ${WD[dowOf(d)].slice(0,3)}</label><input class="di" id="d${+d.slice(8)}" data-day="${+d.slice(8)}" type="number" min="0" step="1000" value="${+(t.days||{})[+d.slice(8)]||''}"></div>`)}</div>
    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="saveDays">Save daily targets</button><span class="muted small">Leave a day empty for no target.</span></div></div>
   <div class="card"><div class="hd"><h3>2 · Share of target by employee</h3><div class="row">
-   <button class="btn sm" data-act="applySuggest">Use suggested shares</button><button class="btn sm" data-act="copyPrev" data-arg="${prev}">Copy ${monthLabel(prev)}</button><button class="btn sm" data-act="normW">Make 100%</button><button class="btn sm pri" data-act="saveW">Save shares</button></div></div>
+   <button class="btn sm" data-act="applySuggest">Use suggested shares</button><button class="btn sm" data-act="copyPrev" data-arg="${prev}">Copy ${monthLabel(prev)}</button><button class="btn sm" data-act="normW">Make 100%</button><label class="row small" style="gap:6px">Apply from <input id="w-from" type="date" min="${m}-01" max="${monthEnd(m)}" style="width:150px"></label><button class="btn sm pri" data-act="saveW">Save shares</button></div></div>
+   ${(t.wv&&t.wv.length)?html`<div class="note" style="margin:8px 0">Share changes during this month: ${t.wv.map(v=>html`<span class="pill mute">from ${dLabelY(v.from)} <a href="#" data-act="rmWv" data-arg="${v.from}" style="margin-left:4px">remove</a></span> `)}<div class="small muted" style="margin-top:4px">Days before the first change use the original shares. The table below shows the latest shares.</div></div>`:''}
+   <p class="small muted" style="margin:6px 0 0">Leave "Apply from" empty to change the whole month. Pick a date to change shares only from that day; earlier days keep their old targets.</p>
    <p class="small muted" style="margin:0 0 10px">Suggested share weighs designation, section, last month's performance and months of experience. Change the weights in Settings. You can overwrite any number.</p>
    <div class="note ${Math.abs(sumW-100)<0.15?'':'warn'}" style="margin-bottom:10px">Shares total <b class="num" id="sumw">${sumW.toFixed(1)}%</b>${Math.abs(sumW-100)<0.15?' — complete.':' — the daily targets are still split fairly, but the total should be 100%.'}</div>
-   <div class="tw"><table><thead><tr><th>Employee</th><th>Section</th><th class="r">Experience</th><th class="r">Suggested</th><th class="r">Share %</th><th class="r">Month target</th><th class="r">Day off</th></tr></thead><tbody>${raw(rowsHtml)}</tbody></table></div></div>
+   <div class="tw"><table><thead><tr><th>Employee</th><th>Section</th><th class="r">Experience</th><th class="r">Suggested</th><th class="r">Share %</th><th class="r">Month target</th><th class="r">Day off</th></tr></thead><tbody>${rowsHtml}</tbody></table></div></div>
   <div class="card"><div class="hd"><h3>3 · Day-by-day target per employee</h3><span class="muted small">Values in thousands (k)</span></div>${matrix}</div>`;
 }
 
@@ -161,10 +164,10 @@ function viewTargets(){
 function viewData(){
   const months=Object.entries((S.meta&&S.meta.months)||{}).sort();
   const un={};for(const id in S.rows)if(!S.staff[id])un[id]=(un[id]||0)+S.rows[id].reduce((a,r)=>a+r.amt,0);
-  return html`<div class="card"><div class="hd"><h3>Upload sales report</h3></div>
+  return html`${S.remote?'':html`<div class="card"><div class="hd"><h3>Upload sales report</h3></div>
    <div class="dz" id="dz-sales" data-act="pick" data-arg="sales"><b>Drop the Executive Wise Sales Data file here</b><br><span class="muted">or click to choose (.xlsx or .csv). Days in the file replace the same days already saved; other days are kept.</span></div>
    <input type="file" id="f-sales" accept=".xlsx,.xls,.csv" hidden>
-   ${S.upload&&S.upload.kind==='sales'?uploadPreview():''}</div>
+   ${S.upload&&S.upload.kind==='sales'?uploadPreview():''}</div>`}
   <div class="card"><h3>Saved sales data</h3>${months.length?html`<div class="tw"><table><thead><tr><th>Month</th><th class="r">Invoice lines</th><th class="r">Sales (${cfg().basis==='ex'?'ex-VAT':cfg().basis==='net'?'net incl. VAT':'gross'})</th></tr></thead><tbody>
    ${months.map(([k,v])=>html`<tr><td>${monthLabel(k)}</td><td class="r num">${fmt(v.rows)}</td><td class="r num">${taka(outletMetrics(k+'-01',monthEnd(k)).ach)}</td></tr>`)}</tbody></table></div>
    <p class="small muted">Latest sale date ${S.meta?dLabelY(S.meta.lastDate):'–'} · last file ${S.meta?E(S.meta.source||''):''}${S.meta&&S.meta.uploadedAt?' · uploaded '+new Date(S.meta.uploadedAt).toLocaleString('en-GB'):''}</p>`:html`<div class="empty">Nothing saved yet.</div>`}</div>
@@ -180,7 +183,7 @@ function uploadPreview(){
    <div class="row"><button class="btn pri" data-act="saveSales" ${S.busy?'disabled':''}>Save and update everyone</button><button class="btn" data-act="cancelUpload">Cancel</button></div></div>`;}
   if(u.kind==='target'){const r=u.res;
    return html`<div style="margin-top:14px" class="grid"><div class="note">Found daily targets for <b>${r.months.map(monthLabel).join(', ')}</b> (${r.days} days, total ${taka(r.total)}) and ${r.staff} employees.</div>
-   <div class="row"><label class="row small"><input type="checkbox" id="tu-days" checked style="width:auto;min-height:0"> Daily outlet targets</label><label class="row small"><input type="checkbox" id="tu-w" checked style="width:auto;min-height:0"> Employee shares</label><label class="row small"><input type="checkbox" id="tu-st" style="width:auto;min-height:0"> Add new employees from the file</label></div>
+   <div class="row"><label class="row small"><input type="checkbox" id="tu-days" checked style="width:auto;min-height:0"> Daily outlet targets</label><label class="row small"><input type="checkbox" id="tu-w" checked style="width:auto;min-height:0"> Employee shares</label><label class="row small">Apply shares from <input id="tu-from" type="date" style="width:150px"></label><label class="row small"><input type="checkbox" id="tu-st" style="width:auto;min-height:0"> Add new employees from the file</label></div>
    <div class="row"><button class="btn pri" data-act="saveTargets">Save targets</button><button class="btn" data-act="cancelUpload">Cancel</button></div></div>`;}
   return '';
 }

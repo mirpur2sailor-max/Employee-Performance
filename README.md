@@ -1,6 +1,6 @@
-# Sailor Performance Hub
+# Performance Hub
 
-Employee sales performance app for the Mirpur-2 outlet: staff profiles, monthly target allocation, live achievement,
+Employee sales performance app (Performance Hub) for the Mirpur-2 outlet: staff profiles, monthly target allocation, live achievement,
 Big Basket, evaluations, watchlist with coaching guidance, confidential explanations, Excel/PDF summary reports.
 Plain static website (HTML + JS). No build step.
 
@@ -37,3 +37,15 @@ Supabase -> Table editor -> `kv` -> delete the row `col=config, id=main`, reload
 
 ## Files
 `index.html` · `css/app.css` · `js/*.js` (core, views, storage, sync) · `js/config.js` (your settings) · `data/` (seed + sales) · `tests/` (browser tests).
+
+## Day-to-day answers
+- **Staff access:** share the site address. Employees open it, choose the Employee tab, enter Employee ID + access code (Settings -> Employee access codes). On a phone: browser menu -> Add to Home Screen gives the Performance Hub icon.
+- **What staff see:** only their own numbers, profile (read-only) and their own explanations. Settings -> Employee view switches rank, evaluation table, last-14-days table, big baskets and average bill on or off, or pauses all employee sign-ins.
+- **Employee leaves:** open the profile -> Edit profile -> set Status to Resigned (with the resign date) or App access to Blocked -> Save. Sign-in stops at once, even on a phone that is already signed in. Their past sales stay in reports.
+- **Sales file:** keep ONE cumulative file at `data/sales.csv` (everything from the first day you want to see, e.g. 1 July). Replace it on GitHub (Add file -> Upload files, same name) or let the publisher overwrite it. Do not download and re-upload through the app. The app picks it up within 10 minutes.
+- **Target file changed mid-month:** Targets tab. Upload the new file or edit the daily targets and shares. To change shares only from a date forward, fill "Apply from" before saving; earlier days keep their old targets. New joiners, resignations and day-offs are handled automatically from the dates in each profile.
+- **Language:** English by default. Settings -> Language sets the default, and everyone can switch with the button at the top. Excel and PDF reports stay in English.
+- **Updating the app:** replace the files in the repository with this version but keep your own `js/config.js`.
+
+## Privacy of the repository
+GitHub Pages on a free plan needs a public repository, so everything inside it (including `data/sales.csv` and `data/seed.json`, which holds staff names, mobile numbers and photos) can be opened by anyone who guesses the address. After the first "Load starter data", delete `data/seed.json` from the repository. If employee-wise sales must stay private, host from a private repository (GitHub paid plan, or Cloudflare Pages / Netlify connected to a private repo).

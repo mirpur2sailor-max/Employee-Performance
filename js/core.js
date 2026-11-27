@@ -47,7 +47,7 @@ function loadLib(url){return libs[url]||(libs[url]=new Promise((res,rej)=>{const
 const LIB={xlsx:'js/vendor/xlsx.full.min.js',excel:'js/vendor/exceljs.min.js',pdf:'js/vendor/jspdf.umd.min.js',pdft:'js/vendor/jspdf.plugin.autotable.min.js'};
 
 /* ============ state ============ */
-const DEFAULT_CFG={outlet:'Mirpur-2 Outlet',basis:'ex',poorBelow:80,
+const DEFAULT_CFG={outlet:'Mirpur-2 Outlet',basis:'ex',poorBelow:80,lang:'en',staffOpen:true,staffSees:{rank:true,eval:true,days:true,big:true,bill:true},
   desigWeights:{'FS':6,'AFS':5,'SR SA':5,'SA':4.5,'POS':2,'SR BIC':1,'BIC':1,'ABIC':1,'OTHERS':2},
   sectionFactors:{MENS:1,WOMENS:1,KIDS:1,OTHERS:0.8}};
 const SLABS=[5000,10000,15000,20000,25000,30000,50000];
@@ -63,7 +63,7 @@ const isAdmin=()=>S.role==='admin';
 let dirty=false,rafId=0;
 function schedule(){ if(rafId)return; rafId=requestAnimationFrame(()=>{rafId=0;const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#app').contains(a)){dirty=true;return}dirty=false;render()})}
 document.addEventListener('focusout',()=>{setTimeout(()=>{const a=document.activeElement;if(dirty&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){dirty=false;render()}},60)});
-function toast(msg,err){const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),err?5200:2600)}
+function toast(msg,err){const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=lang()==='bn'&&window.tr?tr(msg):msg;document.body.appendChild(t);setTimeout(()=>t.remove(),err?5200:2600)}
 function dbErr(e){const c=e&&e.code;if(c==='invalid_argument'||c==='permission_denied')return 'This change was refused by the data store. Check the Supabase keys and table policies.';return (e&&e.message)||'Something went wrong. Please try again.'}
 async function guard(fn,okMsg){try{const r=await fn();if(okMsg)toast(okMsg);return r}catch(e){console.error(e);toast(dbErr(e),true);return undefined}}
 
@@ -88,12 +88,14 @@ function isActiveNow(st){return st.status!=='Resigned'&&!(st.resign&&st.resign<S
 function dayTargets(m){
   const key=m;if(S.tcache[key])return S.tcache[key];
   const t=S.targets[m];const out={};if(!t){return S.tcache[key]=out}
-  const n=+monthEnd(m).slice(8);const W=t.weights||{};
-  const list=staffList().filter(s=>(+W[s.id]||0)>0);
+  const n=+monthEnd(m).slice(8);const W0=t.weights||{};const V=(t.wv||[]).slice().sort((a,b)=>a.from.localeCompare(b.from));
+  const wAt=iso=>{let w=W0;for(const v of V)if(v.from<=iso)w=v.w;return w};
+  const ids=new Set(Object.keys(W0).filter(k=>+W0[k]>0));V.forEach(v=>Object.keys(v.w).forEach(k=>{if(+v.w[k]>0)ids.add(k)}));
+  const list=staffList().filter(s=>ids.has(s.id));
   list.forEach(s=>out[s.id]=new Array(n+1).fill(0));
   for(let d=1;d<=n;d++){
-    const D=+(t.days&&t.days[d])||0;if(!D)continue;const iso=`${m}-${pad(d)}`,wd=WD[dowOf(iso)];
-    const pr=list.filter(s=>activeOn(s,iso)&&s.dayOff!==wd);const sw=pr.reduce((a,s)=>a+(+W[s.id]),0);
+    const D=+(t.days&&t.days[d])||0;if(!D)continue;const iso=`${m}-${pad(d)}`,wd=WD[dowOf(iso)];const W=wAt(iso);
+    const pr=list.filter(s=>activeOn(s,iso)&&s.dayOff!==wd&&(+W[s.id]||0)>0);const sw=pr.reduce((a,s)=>a+(+W[s.id]),0);
     if(sw>0)pr.forEach(s=>out[s.id][d]=D*(+W[s.id])/sw);
   }
   return S.tcache[key]=out;
@@ -177,3 +179,14 @@ function weeklyPcts(emp,n){
   for(const w of list){const m=empMetrics(emp,w,addDays(w,6));out.push(m.pct)}return out;
 }
 function weekStarts(n){const l=[];let ws=weekStart(S.asOf);for(let i=0;i<n;i++){l.unshift(ws);ws=addDays(ws,-7)}return l}
+
+/* ---- access + target share versions ---- */
+function canLogin(st){return !!st&&st.status!=='Resigned'&&st.access!=='Blocked'&&!(st.resign&&st.resign<=todayISO())}
+function latestW(t){const V=(t&&t.wv)||[];return V.length?V.slice().sort((a,b)=>a.from.localeCompare(b.from)).pop().w:((t&&t.weights)||{})}
+function withWeights(cur,m,w,from){const doc=Object.assign({},cur);const first=m+'-01';
+  if(!from||from<=first){doc.weights=w;doc.wv=[]}
+  else{doc.weights=cur.weights||{};doc.wv=(cur.wv||[]).filter(x=>x.from!==from).concat([{from,w}]).sort((a,b)=>a.from.localeCompare(b.from))}
+  return doc}
+
+function lang(){try{const v=localStorage.getItem('ph.lang');if(v==='bn'||v==='en')return v}catch(e){}return cfg().lang==='bn'?'bn':'en'}
+function setLang(v){try{localStorage.setItem('ph.lang',v)}catch(e){}schedule()}
