@@ -4,7 +4,7 @@
   const C = window.APP_CONFIG || {};
   const SHARED = !!(C.supabaseUrl && C.supabaseKey);
   const base = SHARED ? C.supabaseUrl.replace(/\/+$/, '') + '/rest/v1/kv' : '';
-  const H = SHARED ? { apikey: C.supabaseKey, Authorization: 'Bearer ' + C.supabaseKey, 'Content-Type': 'application/json' } : {};
+  const H = SHARED ? Object.assign({ apikey: C.supabaseKey, 'Content-Type': 'application/json' }, String(C.supabaseKey).startsWith('eyJ') ? { Authorization: 'Bearer ' + C.supabaseKey } : {}) : {};
   const split = p => { const i = p.indexOf('/'); return [p.slice(0, i), p.slice(i + 1)]; };
   const q = s => encodeURIComponent(s);
   const fail = (msg, code) => { const e = new Error(msg); e.code = code; return e; };
