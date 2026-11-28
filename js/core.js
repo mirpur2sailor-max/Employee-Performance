@@ -47,7 +47,7 @@ function loadLib(url){return libs[url]||(libs[url]=new Promise((res,rej)=>{const
 const LIB={xlsx:'js/vendor/xlsx.full.min.js',excel:'js/vendor/exceljs.min.js',pdf:'js/vendor/jspdf.umd.min.js',pdft:'js/vendor/jspdf.plugin.autotable.min.js'};
 
 /* ============ state ============ */
-const DEFAULT_CFG={outlet:'Mirpur-2 Outlet',basis:'ex',poorBelow:80,lang:'en',staffOpen:true,staffSees:{rank:true,eval:true,days:true,big:true,bill:true},
+const DEFAULT_CFG={outlet:'Mirpur-2 Outlet',basis:'ex',poorBelow:80,lang:'en',staffOpen:true,staffSees:{rank:true,eval:true,days:true,big:true,bill:true,outlet:false,board:false,bbtab:false,guide:false,reports:false},
   desigWeights:{'FS':6,'AFS':5,'SR SA':5,'SA':4.5,'POS':2,'SR BIC':1,'BIC':1,'ABIC':1,'OTHERS':2},
   sectionFactors:{MENS:1,WOMENS:1,KIDS:1,OTHERS:0.8}};
 const SLABS=[5000,10000,15000,20000,25000,30000,50000];
@@ -56,12 +56,16 @@ const S={db:null,user:null,dl:null,canEdit:false,isOwner:false,ready:false,loadE
   role:null,empId:null,view:'overview',period:{key:'month',from:null,to:null},drawer:null,modal:null,
   rows:{},asOf:todayISO(),tcache:{},filter:{q:'',section:'',status:'active'},sort:{k:'pct',dir:1},
   bb:{thr:10000,mode:'atleast'},tgtMonth:null,draftW:null,upload:null,busy:null,loginTab:'emp',setup:{step:1},
-  rep:{cols:{photo:true,personal:true,target:true,sales:true,bb:true},section:'',title:'Staff Performance Summary',slabs:true},
+  rep:{cols:{photo:true,personal:true,target:true,sales:true,bb:true},groups:{y:false,m:false,d:false},section:'',title:'Staff Performance Summary',slabs:true},
+  tgtShowLeft:false,unOpen:false,hscroll:{},
   empTab:'home',explFilter:{emp:'',status:''},justSent:null,wlOpen:{}};
 const cfg=()=>Object.assign({},DEFAULT_CFG,S.cfg||{});
 const isAdmin=()=>S.role==='admin';
+/* what an employee may see: the first five are on unless switched off, the extra tabs stay off until the admin grants them */
+const SEES_ON=['rank','eval','days','big','bill'];
+const sees=k=>{const v=(cfg().staffSees||{})[k];return SEES_ON.includes(k)?v!==false:v===true};
 let dirty=false,rafId=0;
-function schedule(){ if(rafId)return; rafId=requestAnimationFrame(()=>{rafId=0;const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#app').contains(a)){dirty=true;return}dirty=false;render()})}
+function schedule(){ if(rafId)return; rafId=requestAnimationFrame(()=>{rafId=0;const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&!/checkbox|radio/.test(a.type)&&$('#app').contains(a)){dirty=true;return}dirty=false;render()})}
 document.addEventListener('focusout',()=>{setTimeout(()=>{const a=document.activeElement;if(dirty&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){dirty=false;render()}},60)});
 function toast(msg,err){const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=lang()==='bn'&&window.tr?tr(msg):msg;document.body.appendChild(t);setTimeout(()=>t.remove(),err?5200:2600)}
 function dbErr(e){const c=e&&e.code;if(c==='invalid_argument'||c==='permission_denied')return 'This change was refused by the data store. Check the Supabase keys and table policies.';return (e&&e.message)||'Something went wrong. Please try again.'}
@@ -173,6 +177,19 @@ function remainingNeed(emp){
   const ach=metricsFrom(S.rows[emp]||[],m+'-01',S.asOf,1e9).ach;
   const dt=dayTargets(m)[emp]||[];let days=0;for(let d=+S.asOf.slice(8)+1;d<dt.length;d++)if(dt[d]>0)days++;
   const left=full-ach;return {full,ach,left,days,perDay:days?Math.max(0,left)/days:Math.max(0,left),done:left<=0};
+}
+/* full length of the selected period (month -> month end, week -> Friday, ...) and what is still needed to close it */
+function periodFullEnd(p=S.period){const A=S.asOf;
+  if(p.key==='week')return addDays(weekStart(A),6);
+  if(p.key==='month')return monthEnd(mk(A));
+  if(p.key==='quarter')return monthEnd(nextMonth(nextMonth(mk(qStart(A)))));
+  if(p.key==='fy')return `${+fyStart(A).slice(0,4)+1}-06-30`;
+  return p.to}
+function periodNeed(emp,p=S.period){
+  const end=periodFullEnd(p);const full=targetOf(emp,p.from,end);if(!full)return null;
+  const ach=metricsFrom(S.rows[emp]||[],p.from,clipTo(end),1e9).ach;let days=0;
+  for(let d=addDays(S.asOf,1);d<=end;d=addDays(d,1)){const v=(dayTargets(mk(d))[emp]||[])[+d.slice(8)];if(v>0)days++}
+  const left=full-ach;return {full,ach,left,days,perDay:days?Math.max(0,left)/days:0,done:left<=0,end};
 }
 function weeklyPcts(emp,n){
   const out=[];let ws=weekStart(S.asOf);const list=[];for(let i=0;i<n;i++){list.unshift(ws);ws=addDays(ws,-7)}

@@ -7,7 +7,7 @@ function periodBar(){
    ${k==='custom'?html`<span class="row"><input type="date" id="pf" value="${S.period.from}" style="width:150px"><span class="muted">to</span><input type="date" id="pt" value="${S.period.to}" style="width:150px"><button class="btn sm pri" data-act="applyCustom">Apply</button></span>`:''}
    <span class="sp"></span><span class="muted small">${periodLabel()} · sales data up to ${dLabelY(S.asOf)}</span></div></div>`;
 }
-function noData(){return html`<div class="card"><div class="empty"><b>No sales data yet.</b><br>Go to <button class="btn sm" data-act="nav" data-arg="data">Sales Data</button> and upload your executive-wise sales report.</div></div>`}
+function noData(){return isAdmin()?html`<div class="card"><div class="empty"><b>No sales data yet.</b><br>Go to <button class="btn sm" data-act="nav" data-arg="data">Sales Data</button> and upload your executive-wise sales report.</div></div>`:html`<div class="card"><div class="empty"><b>No sales data yet.</b></div></div>`}
 const hasData=()=>Object.keys(S.rows).length>0;
 
 /* ============ login / setup ============ */
@@ -39,10 +39,11 @@ function viewLogin(){
     <button class="btn pri" data-act="loginAdmin">Open admin panel</button>
     ${S.isOwner?html`<button class="btn sm" data-act="loginTab" data-arg="reset">Forgot password? Reset as page owner</button>`:''}</div>`}</div></div>`;
 }
+function empTabs(){return [['home','My Performance'],...(sees('outlet')||sees('board')?[['outlet','Outlet']]:[]),...(sees('bbtab')?[['bb','Big Basket']]:[]),...(sees('guide')?[['coach','Coaching']]:[]),...(sees('reports')?[['reports','Reports']]:[]),['profile','My Profile'],['explainme','Explanations']]}
 const ADMIN_TABS=[['overview','Overview'],['team','Team'],['targets','Targets'],['data','Sales Data'],['bigbasket','Big Basket'],['watch','Watchlist'],['explain','Explanations'],['reports','Reports'],['settings','Settings']];
 function masthead(){
   const me=S.role==='emp'?S.staff[S.empId]:null;
-  const tabs=isAdmin()?ADMIN_TABS:[['home','My Performance'],['profile','My Profile'],['explainme','Explanations']];
+  const tabs=isAdmin()?ADMIN_TABS:empTabs();
   const cur=isAdmin()?S.view:S.empTab;
   return html`<div class="mast"><div class="mast-row"><div class="brand"><img src="img/logo-white.png" alt="Sailor" class="logo"><span class="pname">Performance Hub<small>${cfg().outlet}</small></span></div><span class="sp"></span>
    <div class="who"><button class="btn sm ghost lang" data-act="setLang" data-arg="${lang()==='bn'?'en':'bn'}" title="Language">${lang()==='bn'?'English':'বাংলা'}</button>${me?avatar(me):''}<span>${isAdmin()?'Administrator':me?me.name:''}</span><button class="btn sm ghost" data-act="logout">Log out</button></div></div>
@@ -67,8 +68,8 @@ function chartDaily(a,b){
   return html`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily sales against target">${raw(yl+bars)}<path d="${line}" fill="none" stroke="var(--warn)" stroke-width="2" stroke-dasharray="5 4"/>${raw(xl)}</svg>
   <div class="row small muted" style="margin-top:6px"><span><b style="color:var(--accent)">▮</b> Sales</span><span><b style="color:var(--good)">▮</b> Day target met</span><span><b style="color:var(--warn)">- -</b> Daily target</span></div>`;
 }
-function viewOverview(){
-  if(!hasData())return noData();
+function viewOverview(o={outlet:true,board:true}){
+  if(!hasData())return noData();const emp=!isAdmin();
   const {from,to}=S.period;const m=outletMetrics(from,to);const bb=m.big;
   const mm=mk(S.asOf);const fullT=outletMonthTarget(mm),mAch=outletMetrics(mm+'-01',S.asOf).ach;
   const left=+monthEnd(mm).slice(8)-+S.asOf.slice(8);const proj=(()=>{const dd=+S.asOf.slice(8);return dd?mAch/dd*(+monthEnd(mm).slice(8)):0})();
@@ -78,7 +79,7 @@ function viewOverview(){
   const secs={};rows.forEach(x=>{const k=x.s.section||'OTHERS';const o=secs[k]||(secs[k]={t:0,a:0,n:0});o.t+=x.m.target;o.a+=x.m.ach;o.n++});
   const known=rows.reduce((a,x)=>a+x.m.ach,0),unk=m.ach-known;
   return html`${periodBar()}
-  <div class="kpis">
+  ${o.outlet?html`<div class="kpis">
    <div class="kpi"><div class="l">Target</div><div class="v">${taka(m.target)}</div><div class="s">${fmt(rangeDays(from,clipTo(to)).length)} days to date</div></div>
    <div class="kpi"><div class="l">Achieved</div><div class="v">${taka(m.ach)}</div><div class="s">${pct(m.pct,1)} of target</div></div>
    <div class="kpi"><div class="l">Status</div><div class="v" style="font-size:19px">${pillB(m.pct)}</div><div class="s">${m.target?taka(m.ach-m.target)+(m.ach>=m.target?' ahead':' behind'):''}</div></div>
@@ -93,11 +94,11 @@ function viewOverview(){
   <div class="grid g2"><div class="card"><h3>Daily sales vs target</h3>${chartDaily(from,to)}</div>
    <div class="card"><h3>Section performance</h3><div class="tw"><table><thead><tr><th>Section</th><th class="r">Staff</th><th class="r">Target</th><th class="r">Achieved</th><th class="r">Ach %</th></tr></thead><tbody>
    ${Object.entries(secs).sort((a,b)=>b[1].a-a[1].a).map(([k,o])=>html`<tr><td><b>${k}</b></td><td class="r num">${o.n}</td><td class="r num">${short(o.t)}</td><td class="r num">${short(o.a)}</td><td class="r num"><span class="pill ${band(o.t?o.a/o.t*100:null).k}">${o.t?pct(o.a/o.t*100):'–'}</span></td></tr>`)}</tbody></table></div>
-   ${unk>1?html`<p class="small muted">Sales by staff not in the Team list: ${taka(unk)}.</p>`:''}</div></div>
-  <div class="card"><div class="hd"><h3>Leaderboard</h3><span class="muted small">Click a name to open the profile</span></div>
+   ${unk>1&&!emp?html`<p class="small muted">Sales by staff not in the Team list: ${taka(unk)}.</p>`:''}</div></div>`:''}
+  ${o.board?html`<div class="card"><div class="hd"><h3>Leaderboard</h3>${emp?'':html`<span class="muted small">Click a name to open the profile</span>`}</div>
    <div class="tw"><table><thead><tr><th>#</th><th>Employee</th><th>Section</th><th class="r">Target</th><th class="r">Achieved</th><th style="min-width:130px">Achievement</th></tr></thead><tbody>
-   ${rows.map((x,i)=>html`<tr data-act="profile" data-arg="${x.s.id}" tabindex="0"><td class="num">${i+1}</td><td>${personCell(x.s)}</td><td>${x.s.section}</td><td class="r num">${short(x.m.target)}</td><td class="r num">${short(x.m.ach)}</td>
-   <td><div class="row" style="flex-wrap:nowrap"><div class="bar sp"><i class="${band(x.m.pct).k}" style="width:${Math.min(100,x.m.pct||0)}%"></i></div><b class="num small" style="min-width:44px;text-align:right">${pct(x.m.pct)}</b></div></td></tr>`)}</tbody></table></div></div>`;
+   ${rows.map((x,i)=>html`<tr ${emp?raw(x.s.id===S.empId?'style="background:var(--accent-soft)"':''):raw(`data-act="profile" data-arg="${E(x.s.id)}" tabindex="0"`)}><td class="num">${i+1}</td><td>${personCell(x.s)}</td><td>${x.s.section}</td><td class="r num">${short(x.m.target)}</td><td class="r num">${short(x.m.ach)}</td>
+   <td><div class="row" style="flex-wrap:nowrap"><div class="bar sp"><i class="${band(x.m.pct).k}" style="width:${Math.min(100,x.m.pct||0)}%"></i></div><b class="num small" style="min-width:44px;text-align:right">${pct(x.m.pct)}</b></div></td></tr>`)}</tbody></table></div></div>`:''}`;
 }
 
 /* ============ Team ============ */
@@ -138,9 +139,14 @@ function viewTargets(){
     <td class="r" style="width:96px"><input class="wi" data-emp="${s.id}" type="number" step="0.1" min="0" value="${W[s.id]||0}" style="text-align:right"></td>
     <td class="r num">${taka(mt)}</td><td class="r num small muted">${s.dayOff||'–'}</td></tr>`});
   const days=rangeDays(m+'-01',monthEnd(m));
+  const act=list.filter(isActiveNow),left=list.filter(s=>!isActiveNow(s));
+  const mrow=(s,sub)=>html`<tr${sub?raw(' class="subrow"'):''}><td>${sub?raw('&nbsp;&nbsp;'):''}${s.name}</td>${days.map((d,i)=>{const v=(calc[s.id]||[])[i+1]||0;return html`<td class="${v?'':'off'}">${v?(v/1000).toFixed(1)+'k':'off'}</td>`})}<td><b>${short((calc[s.id]||[]).reduce((a,b)=>a+b,0))}</b></td></tr>`;
   const matrix=html`<div class="tw" style="max-height:420px"><table class="matrix"><thead><tr><th>Employee</th>${days.map(d=>html`<th title="${WD[dowOf(d)]}">${+d.slice(8)}<br><span style="font-weight:400">${WD[dowOf(d)].slice(0,2)}</span></th>`)}<th>Total</th></tr></thead><tbody>
    <tr><td><b>Outlet target</b></td>${days.map(d=>html`<td><b>${short(+(t.days||{})[+d.slice(8)]||0)}</b></td>`)}<td><b>${short(dt)}</b></td></tr>
-   ${list.map(s=>html`<tr><td>${s.name}</td>${days.map((d,i)=>{const v=(calc[s.id]||[])[i+1]||0;return html`<td class="${v?'':'off'}">${v?(v/1000).toFixed(1)+'k':'off'}</td>`})}<td><b>${short((calc[s.id]||[]).reduce((a,b)=>a+b,0))}</b></td></tr>`)}</tbody></table></div>`;
+   ${act.map(s=>mrow(s))}
+   ${left.length?html`<tr class="grp"><td><button class="btn sm" data-act="tgtLeft" aria-expanded="${String(S.tgtShowLeft)}">${S.tgtShowLeft?'▾':'▸'} <span>Resigned staff</span> (${left.length})</button></td>${days.map((d,i)=>{const v=left.reduce((a,s)=>a+((calc[s.id]||[])[i+1]||0),0);return html`<td class="${v?'':'off'}">${v?(v/1000).toFixed(1)+'k':'–'}</td>`})}<td><b>${short(left.reduce((a,s)=>a+(calc[s.id]||[]).reduce((x,y)=>x+y,0),0))}</b></td></tr>
+   ${S.tgtShowLeft?left.map(s=>mrow(s,true)):''}`:''}</tbody></table></div>
+   ${left.length?html`<p class="small muted" style="margin:6px 0 0">Staff who have resigned are grouped in one row so the daily totals still add up. Open the row to see each person.</p>`:''}`;
   S.targets=tmpTargets;if(saved)S.targets[m]=saved;else delete S.targets[m];delete S.tcache[m];
   const months=[...new Set([...Object.keys(S.targets),mk(S.asOf),nextMonth(mk(S.asOf))])].sort();
   return html`<div class="card"><div class="hd"><div class="row"><button class="btn sm" data-act="tgtMonth" data-arg="${prev}">‹</button><h2>${monthLabel(m)}</h2><button class="btn sm" data-act="tgtMonth" data-arg="${nextMonth(m)}">›</button>
@@ -171,8 +177,9 @@ function viewData(){
   <div class="card"><h3>Saved sales data</h3>${months.length?html`<div class="tw"><table><thead><tr><th>Month</th><th class="r">Invoice lines</th><th class="r">Sales (${cfg().basis==='ex'?'ex-VAT':cfg().basis==='net'?'net incl. VAT':'gross'})</th></tr></thead><tbody>
    ${months.map(([k,v])=>html`<tr><td>${monthLabel(k)}</td><td class="r num">${fmt(v.rows)}</td><td class="r num">${taka(outletMetrics(k+'-01',monthEnd(k)).ach)}</td></tr>`)}</tbody></table></div>
    <p class="small muted">Latest sale date ${S.meta?dLabelY(S.meta.lastDate):'–'} · last file ${S.meta?E(S.meta.source||''):''}${S.meta&&S.meta.uploadedAt?' · uploaded '+new Date(S.meta.uploadedAt).toLocaleString('en-GB'):''}</p>`:html`<div class="empty">Nothing saved yet.</div>`}</div>
-  ${Object.keys(un).length?html`<div class="card"><h3>Sales by IDs that are not in the Team list</h3><p class="small muted">These sales are counted in the outlet totals but not in anyone's profile. Add them as staff to include them.</p><div class="tw"><table><thead><tr><th>ID</th><th>Name in report</th><th class="r">Sales</th><th></th></tr></thead><tbody>
-   ${Object.entries(un).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([id,a])=>html`<tr><td>${id}</td><td>${(S.meta&&S.meta.names&&S.meta.names[id])||''}</td><td class="r num">${taka(a)}</td><td class="r"><button class="btn sm" data-act="addStaff" data-arg="${id}">Add as staff</button></td></tr>`)}</tbody></table></div></div>`:''}
+  ${Object.keys(un).length?html`<div class="card"><div class="hd"><div><h3 style="margin:0">Sales by IDs that are not in the Team list</h3><span class="small muted">${Object.keys(un).length} IDs · ${taka(Object.values(un).reduce((a,b)=>a+b,0))}</span></div><button class="btn sm" data-act="unToggle" aria-expanded="${String(S.unOpen)}">${S.unOpen?'▾ Hide list':'▸ Show list'}</button></div>
+   ${S.unOpen?html`<p class="small muted">These sales are counted in the outlet totals but not in anyone's profile.</p><div class="tw"><table><thead><tr><th>ID</th><th>Name in report</th><th class="r">Sales</th></tr></thead><tbody>
+   ${Object.entries(un).sort((a,b)=>b[1]-a[1]).map(([id,a])=>html`<tr><td>${id}</td><td>${(S.meta&&S.meta.names&&S.meta.names[id])||''}</td><td class="r num">${taka(a)}</td></tr>`)}</tbody></table></div>`:''}</div>`:''}
   ${syncCard()}`;
 }
 function uploadPreview(){
@@ -189,19 +196,19 @@ function uploadPreview(){
 }
 
 /* ============ Big basket ============ */
-function viewBig(){
+function viewBig(only){
   if(!hasData())return noData();
-  const {from,to}=S.period;const mode=S.bb.mode;
+  const {from,to}=S.period;const mode=S.bb.mode;const showTot=!only||sees('outlet');
   const bands=SLABS.map((s,i)=>({lo:s,hi:SLABS[i+1]||Infinity,l:SLABS[i+1]?`${s/1000}–${SLABS[i+1]/1000}K`:`${s/1000}K+`}));
-  const rows=staffList().map(s=>{const m=empMetrics(s.id,from,to,S.bb.thr);return {s,m}}).filter(x=>x.m.inv>0||x.m.target>0).sort((a,b)=>b.m.sl[1]-a.m.sl[1]);
+  const rows=staffList().filter(s=>!only||s.id===only).map(s=>{const m=empMetrics(s.id,from,to,S.bb.thr);return {s,m}}).filter(x=>only||x.m.inv>0||x.m.target>0).sort((a,b)=>b.m.sl[1]-a.m.sl[1]);
   const o=outletMetrics(from,to);
   const cell=(m,i)=>mode==='atleast'?m.sl[i]:m.sl[i]-(m.sl[i+1]||0);
   return html`${periodBar()}
   <div class="card"><div class="hd"><div><h3>Big basket · invoices by bill size</h3><span class="muted small">A big basket is one invoice at or above the amount. Amounts use ${cfg().basis==='ex'?'sales ex-VAT':cfg().basis==='net'?'net sales incl. VAT':'gross sales'}.</span></div>
    <div class="row"><div class="pbar"><button class="chip ${mode==='atleast'?'on':''}" data-act="bbmode" data-arg="atleast">This amount or more</button><button class="chip ${mode==='band'?'on':''}" data-act="bbmode" data-arg="band">Exact bands</button></div></div></div>
   <div class="tw"><table><thead><tr><th>Employee</th><th class="r">Invoices</th><th class="r" style="background:var(--accent-soft)">Big basket (10K+)</th>${bands.map(b=>html`<th class="r">${mode==='atleast'?'≥ '+b.lo/1000+'K':b.l}</th>`)}<th class="r">10K+ share</th></tr></thead><tbody>
-   ${rows.map(({s,m})=>html`<tr data-act="profile" data-arg="${s.id}" tabindex="0"><td>${personCell(s)}</td><td class="r num">${m.inv}</td><td class="r num" style="background:var(--accent-soft)"><b>${m.sl[1]}</b></td>${bands.map((b,i)=>html`<td class="r num">${cell(m,i)||html`<span class="muted">0</span>`}</td>`)}<td class="r num">${m.inv?pct(m.sl[1]/m.inv*100,1):'–'}</td></tr>`)}</tbody>
-   <tfoot><tr><td>Outlet total</td><td class="r num">${o.inv}</td><td class="r num">${o.sl[1]}</td>${bands.map((b,i)=>html`<td class="r num">${cell(o,i)}</td>`)}<td class="r num">${o.inv?pct(o.sl[1]/o.inv*100,1):'–'}</td></tr></tfoot></table></div></div>`;
+   ${rows.map(({s,m})=>html`<tr ${only?'':raw(`data-act="profile" data-arg="${E(s.id)}" tabindex="0"`)}><td>${personCell(s)}</td><td class="r num">${m.inv}</td><td class="r num" style="background:var(--accent-soft)"><b>${m.sl[1]}</b></td>${bands.map((b,i)=>html`<td class="r num">${cell(m,i)||html`<span class="muted">0</span>`}</td>`)}<td class="r num">${m.inv?pct(m.sl[1]/m.inv*100,1):'–'}</td></tr>`)}</tbody>
+   ${showTot?html`<tfoot><tr><td>Outlet total</td><td class="r num">${o.inv}</td><td class="r num">${o.sl[1]}</td>${bands.map((b,i)=>html`<td class="r num">${cell(o,i)}</td>`)}<td class="r num">${o.inv?pct(o.sl[1]/o.inv*100,1):'–'}</td></tr></tfoot>`:''}</table></div></div>`;
 }
 
 /* ============ Watchlist ============ */

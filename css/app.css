@@ -142,3 +142,13 @@ input[type=number]{font-variant-numeric:tabular-nums}
 @font-face{font-family:'Noto Sans Bengali';font-weight:400;font-style:normal;font-display:swap;src:url(../fonts/noto-sans-bengali-bengali-400-normal.woff2) format('woff2');unicode-range:U+0964-0965,U+0980-09FE,U+200C-200D,U+25CC}
 @font-face{font-family:'Noto Sans Bengali';font-weight:600;font-style:normal;font-display:swap;src:url(../fonts/noto-sans-bengali-bengali-600-normal.woff2) format('woff2');unicode-range:U+0964-0965,U+0980-09FE,U+200C-200D,U+25CC}
 @font-face{font-family:'Noto Sans Bengali';font-weight:700;font-style:normal;font-display:swap;src:url(../fonts/noto-sans-bengali-bengali-700-normal.woff2) format('woff2');unicode-range:U+0964-0965,U+0980-09FE,U+200C-200D,U+25CC}
+
+/* v3 */
+.matrix .mh{text-align:left;border-left:2px solid var(--line);font-weight:700;color:var(--ink)}
+.matrix .ms{border-left:2px solid var(--line)}
+.matrix.hist .cell{min-width:0;padding:1px 4px;font-size:11px}
+.matrix tr.grp td{background:var(--surface2);font-weight:600}
+.matrix tr.grp td:first-child{background:var(--surface2)}
+.matrix tr.subrow td{color:var(--muted)}
+tr.gh th{text-align:center;background:var(--surface2);font-size:11px;white-space:normal;border-bottom:1px solid var(--line)}
+th.gs,td.gs{border-left:1px solid var(--line)}

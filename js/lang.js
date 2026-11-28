@@ -49,7 +49,25 @@ const DIG='০১২৩৪৫৬৭৮৯';
 const dig=s=>s.replace(/\d+/g,x=>x.length>=6?x:x.replace(/[0-9]/g,c=>DIG[c]));
 const WDS={Sat:'শনি',Sun:'রবি',Mon:'সোম',Tue:'মঙ্গল',Wed:'বুধ',Thu:'বৃহ',Fri:'শুক্র'};
 const mon=s=>s.replace(/\b(Sat|Sun|Mon|Tue|Wed|Thu|Fri)\b/g,m=>WDS[m]).replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/g,m=>MON[m]);
+Object.assign(D,{
+'Coaching':'কোচিং','Delete':'মুছে ফেলুন','Explanation deleted.':'জবাবদিহিতা মুছে ফেলা হয়েছে।','▸ Show list':'▸ তালিকা দেখুন','▾ Hide list':'▾ তালিকা লুকান','Resigned staff':'রিজাইন করা স্টাফ',
+'Permanent':'পার্মানেন্ট','Package':'প্যাকেজ','Day-by-day performance':'দিনভিত্তিক পারফরম্যান্স','My report':'আমার রিপোর্ট','Guidance for this period':'এই সময়ের জন্য পরামর্শ',
+'My weekly achievement · last 8 weeks (Sat–Fri)':'আমার সাপ্তাহিক অর্জন · গত ৮ সপ্তাহ (শনি–শুক্র)','Target already reached for this period.':'এই সময়ের টার্গেট ইতোমধ্যে পূর্ণ হয়েছে।','No target set for this period.':'এই সময়ের কোনো টার্গেট দেওয়া নেই।',
+'These sales are counted in the outlet totals but not in anyone\'s profile.':'এই সেলস আউটলেটের মোট হিসাবে আছে, কিন্তু কারও প্রোফাইলে নেই।',
+'Staff who have resigned are grouped in one row so the daily totals still add up. Open the row to see each person.':'রিজাইন করা স্টাফদের এক সারিতে রাখা হয়েছে, যাতে দৈনিক মোট মিলে যায়। প্রত্যেকের হিসাব দেখতে সারিটি খুলুন।',
+'Also show target and achievement for':'আরও যে সময়ের টার্গেট ও অর্জন দেখাবে','Year (FY to date)':'বছর (অর্থবছর, আজ পর্যন্ত)','Month (to date)':'মাস (আজ পর্যন্ত)','Day (last day)':'দিন (শেষ দিন)',
+'Year, Month and Day end on the last day of the selected period. Invoices, average bill and big baskets are for the selected period.':'বছর, মাস ও দিনের হিসাব বাছাই করা সময়ের শেষ দিন পর্যন্ত। ইনভয়েস, গড় বিল ও বিগ বাস্কেট বাছাই করা সময়ের।',
+'Choose what employees see after they sign in. Nothing below opens until you tick it. Reports show only the employee\'s own numbers, except the outlet overview and the team leaderboard. To close one person\'s access, open their profile and set App access to Blocked (or mark them Resigned).':'সাইন ইন করার পর এমপ্লয়ীরা কী দেখবে তা বেছে নিন। টিক না দেওয়া পর্যন্ত কোনোটি খুলবে না। আউটলেট ওভারভিউ ও টিম লিডারবোর্ড ছাড়া সব রিপোর্টে শুধু এমপ্লয়ীর নিজের হিসাব দেখায়। কারও এক্সেস বন্ধ করতে তার প্রোফাইলে App access "Blocked" করুন (অথবা Resigned করুন)।',
+'Show "Day-by-day performance" table (since joining)':'"দিনভিত্তিক পারফরম্যান্স" টেবিল দেখান (যোগদান থেকে)','Extra report tabs for employees':'এমপ্লয়ীদের জন্য অতিরিক্ত রিপোর্ট ট্যাব',
+'Outlet tab: outlet totals, month outlook, daily chart, sections':'আউটলেট ট্যাব: আউটলেটের মোট, মাসের আউটলুক, দৈনিক চার্ট, সেকশন','Outlet tab: team leaderboard (everyone\'s name and achievement %)':'আউটলেট ট্যাব: টিম লিডারবোর্ড (সবার নাম ও অর্জন %)',
+'Big Basket tab: own invoices by bill size':'বিগ বাস্কেট ট্যাব: নিজের বিল সাইজ অনুযায়ী ইনভয়েস','Coaching tab: own guidance and weekly trend':'কোচিং ট্যাব: নিজের পরামর্শ ও সাপ্তাহিক ধারা','Reports tab: download own report (Excel / PDF)':'রিপোর্ট ট্যাব: নিজের রিপোর্ট ডাউনলোড (Excel / PDF)'
+});
 const P=[
+[/^Period closed (৳[\d,\-]+) short of target\.$/,m=>`সময় শেষ, টার্গেট থেকে ${m[1]} কম।`],
+[/^From (.+) · scroll left for earlier days$/,m=>`${m[1]} থেকে · আগের দিন দেখতে বামে স্ক্রল করুন`],
+[/^Year · (.+) \(to (.+)\)$/,m=>`বছর · ${window.tr(m[1])} (${m[2]} পর্যন্ত)`],[/^Month · (.+) \(to (.+)\)$/,m=>`মাস · ${m[1]} (${m[2]} পর্যন্ত)`],[/^Day · (.+)$/,m=>`দিন · ${m[1]}`],
+[/^This week · (.+)$/,m=>`এই সপ্তাহ · ${m[1]}`],[/^Last month · (.+)$/,m=>`গত মাস · ${m[1]}`],[/^This quarter · (.+)$/,m=>`এই কোয়ার্টার · ${m[1]}`],[/^Custom · (.+)$/,m=>`কাস্টম · ${m[1]}`],
+[/^(\d+) IDs · (৳[\d,\-]+)$/,m=>`${m[1]}টি আইডি · ${m[2]}`],
 [/^Hello, (.+)$/,(m)=>`হ্যালো, ${m[1]}`],
 [/^Rank (\d+) of (\d+)$/,m=>`র‍্যাঙ্ক ${m[1]} / ${m[2]}`],
 [/^([\d.]+)% achieved$/,m=>`${m[1]}% অর্জিত`],
@@ -59,7 +77,7 @@ const P=[
 [/^Sales data up to (.+)$/,m=>`সেলস ডেটা ${m[1]} পর্যন্ত`],
 [/^Team · (\d+) people$/,m=>`টিম · ${m[1]} জন`],[/^(\d+) of (\d+) employees$/,m=>`${m[2]} জনের মধ্যে ${m[1]} জন`],[/^(\d+) days to date$/,m=>`আজ পর্যন্ত ${m[1]} দিন`],
 [/^(\S+ \S+): (৳[\d,\-]+) \(target (৳[\d,\-]+)\)$/,m=>`${m[1]}: ${m[2]} (টার্গেট ${m[3]})`],
-[/^Needs (৳[\d,]+) per working day for the remaining (\d+) days\.$/,m=>`মাসের বাকি ${m[2]} দিনে কাজের দিন প্রতি ${m[1]} দরকার।`],
+[/^Needs (৳[\d,]+) per working day for the remaining (\d+) days\.$/,m=>`বাকি ${m[2]} কাজের দিনে প্রতিদিন ${m[1]} দরকার।`],
 [/^Month target already reached\.$/,()=>'মাসের টার্গেট ইতোমধ্যে পূর্ণ হয়েছে।'],[/^No target set for this month\.$/,()=>'এই মাসের কোনো টার্গেট দেওয়া নেই।'],
 [/^Below (\d+)% every week since the week of (.+?) \((\d+) weeks?\)\. (.*)$/,m=>`${m[2]} তারিখের সপ্তাহ থেকে প্রতি সপ্তাহেই ${m[1]}%-এর নিচে (${m[3]} সপ্তাহ)। ${window.tr(m[4])}`],
 [/^Target (৳[\d,]+) · achieved (৳[\d,]+) · (\d+) invoices · avg bill (৳[\d,]+)$/,m=>`টার্গেট ${m[1]} · অর্জন ${m[2]} · ${m[3]}টি ইনভয়েস · গড় বিল ${m[4]}`],

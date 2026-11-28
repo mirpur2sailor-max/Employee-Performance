@@ -9,17 +9,25 @@ function render(){
     if(S.role==='emp'&&(!S.staff[S.empId]||!canLogin(S.staff[S.empId])||!cfg().staffOpen)){S.role=null;S.empId=null;ssSet('sess',null);setTimeout(()=>toast('Your access has been closed. Please contact your in-charge.',true),50);return render()}
     let v;
     if(isAdmin()){v={overview:viewOverview,team:viewTeam,targets:viewTargets,data:viewData,bigbasket:viewBig,watch:viewWatch,explain:viewExplain,reports:viewReports,settings:viewSettings}[S.view]();}
-    else if(S.empTab==='home')v=viewEmpHome();
+    else{if(!empTabs().some(t=>t[0]===S.empTab))S.empTab='home';
+    if(S.empTab==='home')v=viewEmpHome();
     else if(S.empTab==='explainme')v=viewEmpExplain();
-    else{const st=S.staff[S.empId];v=st?html`<div class="card"><div class="row" style="margin-bottom:12px">${avatar(st,'lg')}<div><h2>${st.name}</h2><div class="muted">${st.designation} · ${st.section}</div></div></div></div>${readOnlyDetails(st)}`:'';}
+    else if(S.empTab==='outlet')v=viewOverview({outlet:sees('outlet'),board:sees('board')});
+    else if(S.empTab==='bb')v=viewBig(S.empId);
+    else if(S.empTab==='coach')v=viewEmpCoach();
+    else if(S.empTab==='reports')v=viewReports();
+    else{const st=S.staff[S.empId];v=st?html`<div class="card"><div class="row" style="margin-bottom:12px">${avatar(st,'lg')}<div><h2>${st.name}</h2><div class="muted">${st.designation} · ${st.section}</div></div></div></div>${readOnlyDetails(st)}`:'';}}
     const warn=isAdmin()&&!(window.claude&&window.claude.shared)?html`<div class="note bad" style="border-left-color:var(--crit);background:var(--crit-soft);margin-bottom:12px"><b>This device only.</b> The shared database is not connected, so employees cannot see this data on their own phones yet. Add the Supabase keys in <code>js/config.js</code>.</div>`:'';
     out=html`${masthead()}<main>${warn}${v}</main>${viewDrawer()}${viewModal()}`;
   }
   app.innerHTML=val(out);
   if(lang()==='bn')applyLang(app);document.documentElement.lang=lang();
   if(sy)window.scrollTo(0,sy);
+  /* day-by-day history opens on the latest days; a position the user scrolled to is kept until the view changes */
+  $$('[data-hs]',app).forEach(el=>{const k=el.dataset.hs,v=S.hscroll[k];el.scrollLeft=v==null||v==='end'?el.scrollWidth:v});
 }
-function openProfile(id,tab){S.drawer={emp:id,tab:tab||'perf',photo:undefined,formDraft:null};schedule()}
+document.addEventListener('scroll',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.hs){S.hscroll[t.dataset.hs]=t.scrollLeft+t.clientWidth>=t.scrollWidth-4?'end':t.scrollLeft}},true);
+function openProfile(id,tab){S.hscroll={};S.drawer={emp:id,tab:tab||'perf',photo:undefined,formDraft:null};schedule()}
 
 /* ============ parsing uploads ============ */
 const serialToISO=v=>fmtISO(new Date(Math.round((Math.floor(v)-25569)*DAY)));
@@ -133,16 +141,22 @@ const stamp=()=>`${S.period.from}_to_${clipTo(S.period.to)}`;
 /* ============ actions ============ */
 const A={
   async syncNow(){const ch=await syncSales(true);toast(S.syncErr?S.syncErr:ch?'New sales loaded.':'Already up to date.',!!S.syncErr)},
-  nav(a){S.view=a;S.drawer=null;if(a==='targets'){S.draftW=null}schedule()},
-  empnav(a,el){S.empTab=a;S.justSent=null;if(el.dataset.req)S.reqPick=el.dataset.req;schedule()},
+  nav(a){S.view=a;S.drawer=null;S.hscroll={};if(a==='targets'){S.draftW=null}schedule()},
+  empnav(a,el){S.empTab=a;S.justSent=null;S.hscroll={};if(el.dataset.req)S.reqPick=el.dataset.req;schedule()},
   period(a){setPeriod(a)},
+  tgtLeft(){S.tgtShowLeft=!S.tgtShowLeft;schedule()},
+  unToggle(){S.unOpen=!S.unOpen;schedule()},
+  async delExpl(a){const x=S.explanations.find(e=>e.id===a);if(!x)return;
+    if(!confirm(lang()==='bn'?'এই জবাবদিহিতা স্থায়ীভাবে মুছে ফেলবেন? এটি আর ফেরত আনা যাবে না।':'Delete this explanation permanently? This cannot be undone.'))return;
+    const items=S.explanations.filter(e=>e._uid===x._uid&&e.id!==a).map(e=>{const c=Object.assign({},e);delete c._uid;return c});
+    const ref=S.db.doc('explanations/'+x._uid);await guard(()=>items.length?ref.set({items}):ref.delete(),'Explanation deleted.');S.modal=null;schedule()},
   applyCustom(){const f=val$('pf'),t=val$('pt');if(!f||!t||f>t){toast('Choose a valid date range.',true);return}S.period={key:'custom',from:f,to:t};schedule()},
   loginTab(a){S.loginTab=a;schedule()},
   async loginEmp(){const id=val$('l-id'),code=val$('l-code');const st=S.staff[id];
     if(!cfg().staffOpen){toast('Employee access is paused by management.',true);return}
     if(st&&!canLogin(st)){toast('Your access has been closed. Please contact your in-charge.',true);return}
     if(!st||!st.codeHash||(await sha(cfg().salt+id+':'+code))!==st.codeHash){toast('ID or access code is not correct.',true);return}
-    S.role='emp';S.empId=id;S.empTab='home';ssSet('sess',JSON.stringify({role:'emp',empId:id}));setPeriod('month',true);schedule()},
+    S.role='emp';S.empId=id;S.empTab='home';S.hscroll={};ssSet('sess',JSON.stringify({role:'emp',empId:id}));setPeriod('month',true);schedule()},
   async loginAdmin(){const pw=val$('l-pw');if((await sha(cfg().salt+'admin:'+pw))!==cfg().adminHash){toast('Password is not correct.',true);return}
     S.role='admin';S.view='overview';ssSet('sess',JSON.stringify({role:'admin'}));schedule()},
   async ownerSetPw(){const n=val$('l-new');if(n.length<6){toast('Use at least 6 characters.',true);return}if(!S.isOwner)return;await guard(async()=>S.db.doc('config/main').set(Object.assign({},S.cfg,{adminHash:await sha(cfg().salt+'admin:'+n)})),'Password reset.');S.role='admin';S.view='overview';ssSet('sess',JSON.stringify({role:'admin'}));schedule()},
@@ -195,7 +209,7 @@ const A={
   async exportXlsx(){S.busy='x';schedule();await guard(async()=>{const b=await buildXlsx();await saveFile(`${S.rep.title.replace(/\W+/g,'_')}_${stamp()}.xlsx`,b)});S.busy=null;schedule()},
   async exportPdf(){S.busy='x';schedule();await guard(async()=>{const b=await buildPdf();await saveFile(`${S.rep.title.replace(/\W+/g,'_')}_${stamp()}.pdf`,b)});S.busy=null;schedule()},
   async saveCfg(){const c=Object.assign({},S.cfg,{outlet:val$('s-outlet')||cfg().outlet,basis:val$('s-basis'),poorBelow:+val$('s-poor')||80});await guard(()=>S.db.doc('config/main').set(c),'Settings saved.')},
-  async saveVis(){const sees={};['rank','eval','days','big','bill'].forEach(k=>sees[k]=$('#vis-'+k).checked);const c=Object.assign({},S.cfg,{staffSees:sees,staffOpen:$('#vis-open').checked});await guard(()=>S.db.doc('config/main').set(c),'Employee view saved.')},
+  async saveVis(){const sees={};['rank','eval','days','big','bill','outlet','board','bbtab','guide','reports'].forEach(k=>sees[k]=$('#vis-'+k).checked);const c=Object.assign({},S.cfg,{staffSees:sees,staffOpen:$('#vis-open').checked});await guard(()=>S.db.doc('config/main').set(c),'Employee view saved.')},
   async setLang(a){setLang(a)},
   async saveLang(){const c=Object.assign({},S.cfg,{lang:val$('s-lang')||'en'});try{localStorage.setItem('ph.lang',c.lang)}catch(e){}await guard(()=>S.db.doc('config/main').set(c),'Default language saved.')},
   async changePw(){const o=val$('pw-old'),n=val$('pw-new');if(n.length<6){toast('Use at least 6 characters.',true);return}
@@ -234,6 +248,7 @@ document.addEventListener('change',async e=>{
   else if(id==='ef-emp'){S.explFilter.emp=t.value;schedule()}else if(id==='ef-st'){S.explFilter.status=t.value;schedule()}
   else if(id==='rp-title'){S.rep.title=t.value}else if(id==='rp-sec'){S.rep.section=t.value;schedule()}
   else if(t.dataset.rep){S.rep.cols[t.dataset.rep]=t.checked;schedule()}
+  else if(t.dataset.repg){S.rep.groups=Object.assign({},S.rep.groups,{[t.dataset.repg]:t.checked});schedule()}
   else if(id==='sd-photo'&&t.files[0]){try{const d=await resizePhoto(t.files[0]);S.drawer.formDraft=readStaffForm();S.drawer.photo=d;schedule()}catch(err){toast(err.message,true)}}
 });
 ['dragover','dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{const dz=e.target.closest&&e.target.closest('#dz-sales');if(!dz)return;e.preventDefault();dz.classList.toggle('over',ev==='dragover');if(ev==='drop'){dz.classList.remove('over');handleFile('sales',e.dataTransfer.files[0])}}));
