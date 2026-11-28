@@ -24,6 +24,10 @@ function render(){
   if(lang()==='bn')applyLang(app);document.documentElement.lang=lang();
   if(sy)window.scrollTo(0,sy);
   /* day-by-day history opens on the latest days; a position the user scrolled to is kept until the view changes */
+  /* report preview: a second scrollbar above the table, kept in step with the one below */
+  $$('.tw.rep',app).forEach(el=>{if(el.scrollWidth<=el.clientWidth)return;const top=document.createElement('div');top.className='topscroll';top.innerHTML='<div></div>';top.firstChild.style.width=el.scrollWidth+'px';el.before(top);
+    let lock=false;const sync=(a,b)=>()=>{if(lock)return;lock=true;b.scrollLeft=a.scrollLeft;requestAnimationFrame(()=>lock=false)};top.addEventListener('scroll',sync(top,el));el.addEventListener('scroll',sync(el,top));
+    if(S.repX){el.scrollLeft=S.repX;top.scrollLeft=S.repX}el.addEventListener('scroll',()=>{S.repX=el.scrollLeft})});
   $$('[data-hs]',app).forEach(el=>{const k=el.dataset.hs,v=S.hscroll[k];el.scrollLeft=v==null||v==='end'?el.scrollWidth:v});
 }
 document.addEventListener('scroll',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.hs){S.hscroll[t.dataset.hs]=t.scrollLeft+t.clientWidth>=t.scrollWidth-4?'end':t.scrollLeft}},true);
@@ -246,7 +250,7 @@ document.addEventListener('change',async e=>{
   else if(id==='tmsel'){S.tgtMonth=t.value;S.draftW=null;schedule()}
   else if(t.classList.contains('wi')){const w=currentW();w[t.dataset.emp]=+t.value||0;S.draftW={m:S.tgtMonth,w};schedule()}
   else if(id==='ef-emp'){S.explFilter.emp=t.value;schedule()}else if(id==='ef-st'){S.explFilter.status=t.value;schedule()}
-  else if(id==='rp-title'){S.rep.title=t.value}else if(id==='rp-sec'){S.rep.section=t.value;schedule()}
+  else if(id==='rp-title'){S.rep.title=t.value}else if(id==='rp-left'){S.rep.withLeft=t.checked;schedule()}else if(id==='rp-sec'){S.rep.section=t.value;schedule()}
   else if(t.dataset.rep){S.rep.cols[t.dataset.rep]=t.checked;schedule()}
   else if(t.dataset.repg){S.rep.groups=Object.assign({},S.rep.groups,{[t.dataset.repg]:t.checked});schedule()}
   else if(id==='sd-photo'&&t.files[0]){try{const d=await resizePhoto(t.files[0]);S.drawer.formDraft=readStaffForm();S.drawer.photo=d;schedule()}catch(err){toast(err.message,true)}}

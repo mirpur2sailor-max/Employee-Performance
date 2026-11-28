@@ -152,3 +152,15 @@ input[type=number]{font-variant-numeric:tabular-nums}
 .matrix tr.subrow td{color:var(--muted)}
 tr.gh th{text-align:center;background:var(--surface2);font-size:11px;white-space:normal;border-bottom:1px solid var(--line)}
 th.gs,td.gs{border-left:1px solid var(--line)}
+/* report preview: scroll inside a screen-high box so the sideways scrollbar is always in view; headers stay on top */
+.tw.rep{max-height:calc(100vh - 150px);overflow:auto}
+.tw.rep thead th{z-index:3}
+.tw.rep tr.gh th{height:32px;padding-top:0;padding-bottom:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tw.rep tr.gh+tr th{top:32px}
+.topscroll{overflow-x:auto;overflow-y:hidden;height:16px;margin:0 0 4px}
+.topscroll>div{height:1px}
+.tw.rep tfoot{position:sticky;bottom:0;z-index:2}
+.tw.rep tfoot td{background:var(--surface2)}
+tr.aggrow td{background:var(--surface2);color:var(--muted);font-style:italic}
+.tw.rep table{border-collapse:separate;border-spacing:0}
+.tw.rep td{border-bottom:1px solid var(--line)}

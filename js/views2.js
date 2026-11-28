@@ -32,9 +32,16 @@ function reportGroups(){
 function reportRows(){
   const {from,to}=S.period;const R=S.rep;const G=reportGroups();
   const pool=isAdmin()?staffList().filter(s=>!R.section||s.section===R.section):[S.staff[S.empId]].filter(Boolean);
-  return pool.map(s=>({s,m:empMetrics(s.id,from,to),g:G.map(x=>empMetrics(s.id,x.a,x.b))}))
-    .filter(x=>!isAdmin()||isActiveNow(x.s)||x.m.ach>0||x.g.some(y=>y.ach>0))
+  const all=pool.map(s=>({s,m:empMetrics(s.id,from,to),g:G.map(x=>empMetrics(s.id,x.a,x.b))}))
+    .filter(x=>!isAdmin()||isActiveNow(x.s)||[x.m,...x.g].some(y=>y.ach||y.target))
     .sort((a,b)=>((b.g[0]||b.m).pct??-1)-((a.g[0]||a.m).pct??-1));
+  if(!isAdmin()||R.withLeft)return all;
+  /* resigned staff are folded into one row so the totals still match */
+  const act=all.filter(x=>isActiveNow(x.s)),left=all.filter(x=>!isActiveNow(x.s));
+  if(!left.length)return act;
+  const sum=list=>{const o={ach:0,inv:0,qty:0,big:0,target:0,sl:SLABS.map(()=>0)};list.forEach(m=>{o.ach+=m.ach;o.inv+=m.inv;o.qty+=m.qty;o.big+=m.big;o.target+=m.target;m.sl.forEach((v,i)=>o.sl[i]+=v)});
+    o.atv=o.inv?o.ach/o.inv:0;o.upt=o.inv?o.qty/o.inv:0;o.pct=o.target>0?o.ach/o.target*100:null;return o};
+  return act.concat([{agg:true,n:left.length,s:{id:'',name:`Resigned staff (${left.length})`,designation:'',section:''},m:sum(left.map(x=>x.m)),g:G.map((_,i)=>sum(left.map(x=>x.g[i])))}]);
 }
 function viewReports(){
   if(!hasData())return noData();
@@ -47,22 +54,23 @@ function viewReports(){
   return html`${periodBar()}
   <div class="card"><div class="hd"><h3>${isAdmin()?'Summary report for management':'My report'}</h3><div class="row"><button class="btn pri" data-act="exportXlsx" ${S.busy?'disabled':''}>Download Excel</button><button class="btn pri" data-act="exportPdf" ${S.busy?'disabled':''}>Download PDF</button></div></div>
    <div class="form"><div class="f"><label for="rp-title">Report title</label><input id="rp-title" value="${R.title}"></div>
+   ${isAdmin()?html`<div class="f"><span class="lab">Resigned staff</span><label class="row small" style="min-height:42px"><input type="checkbox" id="rp-left" ${R.withLeft?'checked':''} style="width:auto;min-height:0"> With resigned staff</label></div>`:''}
    ${isAdmin()?html`<div class="f"><label for="rp-sec">Section</label><select id="rp-sec"><option value="">All sections</option>${secs.map(x=>html`<option ${R.section===x?'selected':''}>${x}</option>`)}</select></div>`:''}
    <div class="f full"><span class="lab">Include</span><div class="row">${ck('photo','Photo')}${ck('personal','Personal details')}${ck('target','Target and achievement')}${ck('sales','Invoices, average bill, units')}${ck('bb','Big basket and bill-size slabs')}</div></div>
    <div class="f full"><span class="lab">Also show target and achievement for</span><div class="row">${cg('y','Year (FY to date)')}${cg('m','Month (to date)')}${cg('d','Day (last day)')}</div></div></div>
    <p class="muted small" style="margin:10px 0 0">The report covers <b>${periodLabel()}</b>. Change the period above before downloading.</p>
    ${G.length>1||(G.length&&G[0].k!=='p')?html`<p class="muted small" style="margin:4px 0 0">Year, Month and Day end on the last day of the selected period. Invoices, average bill and big baskets are for the selected period.</p>`:''}</div>
-  <div class="card"><h3>Preview</h3><div class="tw"><table><thead>
+  <div class="card"><h3>Preview</h3>${!R.withLeft&&rows.some(x=>x.agg)?html`<p class="small muted" style="margin:0 0 8px">Staff who have resigned are shown together in one row so the totals still match. Tick "With resigned staff" to list each person.</p>`:''}<div class="tw rep"><table><thead>
    ${G.length?html`<tr class="gh"><th colspan="${nb}"></th>${G.map(g=>html`<th colspan="3" class="c">${g.label}</th>`)}${na?html`<th colspan="${na}"></th>`:''}</tr>`:''}
    <tr>${R.cols.photo?html`<th>Photo</th>`:''}<th>Employee</th><th>Designation</th><th>Section</th>${R.cols.personal?html`<th>Joining</th><th>Mobile</th>`:''}${G.map(()=>html`<th class="r gs">Target</th><th class="r">Achieved</th><th class="r">Ach %</th>`)}${R.cols.sales?html`<th class="r gs">Invoices</th><th class="r">Avg bill</th><th class="r">UPT</th>`:''}${R.cols.bb?html`<th class="r">10K+</th>`:''}</tr></thead><tbody>
-   ${rows.map(({s,m,g})=>html`<tr>${R.cols.photo?html`<td>${avatar(s)}</td>`:''}<td><b>${s.name}</b><br><span class="muted small">${s.id}</span></td><td>${s.designation}</td><td>${s.section}</td>${R.cols.personal?html`<td class="nowrap">${s.joining?dLabelY(s.joining):''}</td><td>${s.mobile||''}</td>`:''}${g.map(x=>html`<td class="r num gs">${fmt(x.target)}</td><td class="r num">${fmt(x.ach)}</td><td class="r num"><b>${pct(x.pct,1)}</b></td>`)}${R.cols.sales?html`<td class="r num gs">${m.inv}</td><td class="r num">${fmt(m.atv)}</td><td class="r num">${m.upt.toFixed(2)}</td>`:''}${R.cols.bb?html`<td class="r num">${m.big}</td>`:''}</tr>`)}</tbody>
+   ${rows.map(({s,m,g,agg})=>html`<tr${agg?raw(' class="aggrow"'):''}>${R.cols.photo?html`<td>${agg?'':avatar(s)}</td>`:''}<td><b>${s.name}</b>${agg?'':html`<br><span class="muted small">${s.id}</span>`}</td><td>${s.designation}</td><td>${s.section}</td>${R.cols.personal?html`<td class="nowrap">${s.joining?dLabelY(s.joining):''}</td><td>${s.mobile||''}</td>`:''}${g.map(x=>html`<td class="r num gs">${fmt(x.target)}</td><td class="r num">${fmt(x.ach)}</td><td class="r num"><b>${pct(x.pct,1)}</b></td>`)}${R.cols.sales?html`<td class="r num gs">${m.inv}</td><td class="r num">${fmt(m.atv)}</td><td class="r num">${m.upt.toFixed(2)}</td>`:''}${R.cols.bb?html`<td class="r num">${m.big}</td>`:''}</tr>`)}</tbody>
    ${rows.length>1?html`<tfoot><tr>${R.cols.photo?html`<td></td>`:''}<td>Total</td><td></td><td></td>${R.cols.personal?html`<td></td><td></td>`:''}${gt.map(t=>html`<td class="r num gs">${fmt(t.t)}</td><td class="r num">${fmt(t.a)}</td><td class="r num">${t.t?pct(t.a/t.t*100,1):'–'}</td>`)}${R.cols.sales?html`<td class="r num gs">${tot.i}</td><td class="r num">${tot.i?fmt(tot.a/tot.i):'–'}</td><td></td>`:''}${R.cols.bb?html`<td class="r num">${tot.b}</td>`:''}</tr></tfoot>`:''}</table></div></div>`;
 }
 /* one column list drives both Excel and PDF */
 function reportCols(G){
   const R=S.rep,cols=[];const C=(h,w,o={})=>cols.push(Object.assign({h,w},o));
   if(R.cols.photo)C('Photo',9,{v:()=>'',pdf:()=>''});
-  C('Sl',5,{v:(x,i)=>i+1,nopdf:1});C('Employee',28,{v:x=>x.s.name,pdf:x=>`${x.s.name}\n${x.s.id}`});C('ID',10,{v:x=>+x.s.id||x.s.id,nopdf:1});
+  C('Sl',5,{v:(x,i)=>i+1,nopdf:1});C('Employee',28,{v:x=>x.s.name,pdf:x=>x.agg?x.s.name:`${x.s.name}\n${x.s.id}`});C('ID',10,{v:x=>+x.s.id||x.s.id,nopdf:1});
   C('Designation',13,{v:x=>x.s.designation||''});C('Section',11,{v:x=>x.s.section||''});
   if(R.cols.personal){C('Joining',12,{v:x=>x.s.joining||'',pdf:x=>x.s.joining?dLabelY(x.s.joining):''});C('Mobile',14,{v:x=>x.s.mobile||''})}
   G.forEach((g,gi)=>{C('Target',13,{g:gi,v:x=>Math.round(x.g[gi].target),pdf:x=>fmt(x.g[gi].target),fmt:'#,##0',sum:1,num:1});
@@ -84,7 +92,8 @@ async function buildXlsx(){
   const hr=ws.getRow(4);hr.values=cols.map(c=>c.h);hr.height=24;hr.eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0C3B5E'}};c.alignment={vertical:'middle',horizontal:'center',wrapText:true}});
   let r=5;
   for(const [i,x] of rows.entries()){
-    const row=ws.getRow(r);row.values=cols.map(c=>c.v(x,i));row.height=R.cols.photo?44:20;row.alignment={vertical:'middle'};
+    const row=ws.getRow(r);row.values=cols.map(c=>c.v(x,i));row.height=R.cols.photo&&!x.agg?44:20;row.alignment={vertical:'middle'};
+    if(x.agg){row.font={italic:true,color:{argb:'FF5A6D82'}};row.eachCell({includeEmpty:true},c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F6F8'}}})}
     if(R.cols.photo&&x.s.photo){try{const id=wb.addImage({base64:x.s.photo,extension:'jpeg'});ws.addImage(id,{tl:{col:0.1,row:r-1+0.08},ext:{width:48,height:48}})}catch(e){}}
     r++;
   }
@@ -117,6 +126,7 @@ async function buildPdf(){
   doc.autoTable({head,body:rows.length>1?[...body,fr]:body,startY:25,theme:'grid',styles:{fontSize:cols.length>16?6.5:8,cellPadding:1.4,valign:'middle',lineColor:[217,226,236],lineWidth:.1,minCellHeight:R.cols.photo?13:7},headStyles:{fillColor:[12,59,94],textColor:255,halign:'center'},
     margin:{left:12,right:12},columnStyles:Object.fromEntries(cols.map((c,i)=>[i,{halign:c.num?'right':'left',cellWidth:c.h==='Photo'?14:'auto'}])),
     didParseCell:d=>{if(d.section!=='body')return;if(d.row.index===body.length){d.cell.styles.fontStyle='bold';d.cell.styles.fillColor=[238,242,246];return}
+      if(rows[d.row.index]&&rows[d.row.index].agg){d.cell.styles.fontStyle='italic';d.cell.styles.fillColor=[244,246,248]}
       if(pctCols.includes(d.column.index)&&rows[d.row.index]){const p=rows[d.row.index].g[cols[d.column.index].g].pct;if(p!=null){d.cell.styles.textColor=p>=100?[23,128,61]:p<cfg().poorBelow?[180,35,42]:[169,106,8];d.cell.styles.fontStyle='bold'}}},
     didDrawCell:d=>{const x=rows[d.row.index];if(R.cols.photo&&x&&d.section==='body'&&d.column.index===0&&d.row.index<body.length){const s=x.s;if(s.photo){try{doc.addImage(s.photo,'JPEG',d.cell.x+1,d.cell.y+0.8,11.4,11.4)}catch(e){}}}}});
   const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(120);doc.text(`Page ${i} of ${n}`,285,205,{align:'right'})}

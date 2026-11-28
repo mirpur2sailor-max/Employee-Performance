@@ -50,6 +50,7 @@ const dig=s=>s.replace(/\d+/g,x=>x.length>=6?x:x.replace(/[0-9]/g,c=>DIG[c]));
 const WDS={Sat:'শনি',Sun:'রবি',Mon:'সোম',Tue:'মঙ্গল',Wed:'বুধ',Thu:'বৃহ',Fri:'শুক্র'};
 const mon=s=>s.replace(/\b(Sat|Sun|Mon|Tue|Wed|Thu|Fri)\b/g,m=>WDS[m]).replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/g,m=>MON[m]);
 Object.assign(D,{
+'With resigned staff':'রিজাইন করা স্টাফসহ','Staff who have resigned are shown together in one row so the totals still match. Tick "With resigned staff" to list each person.':'রিজাইন করা স্টাফদের এক সারিতে একসাথে দেখানো হয়েছে, যাতে মোট মিলে যায়। প্রত্যেককে আলাদা দেখতে "রিজাইন করা স্টাফসহ" টিক দিন।',
 'Coaching':'কোচিং','Delete':'মুছে ফেলুন','Explanation deleted.':'জবাবদিহিতা মুছে ফেলা হয়েছে।','▸ Show list':'▸ তালিকা দেখুন','▾ Hide list':'▾ তালিকা লুকান','Resigned staff':'রিজাইন করা স্টাফ',
 'Permanent':'পার্মানেন্ট','Package':'প্যাকেজ','Day-by-day performance':'দিনভিত্তিক পারফরম্যান্স','My report':'আমার রিপোর্ট','Guidance for this period':'এই সময়ের জন্য পরামর্শ',
 'My weekly achievement · last 8 weeks (Sat–Fri)':'আমার সাপ্তাহিক অর্জন · গত ৮ সপ্তাহ (শনি–শুক্র)','Target already reached for this period.':'এই সময়ের টার্গেট ইতোমধ্যে পূর্ণ হয়েছে।','No target set for this period.':'এই সময়ের কোনো টার্গেট দেওয়া নেই।',
@@ -63,6 +64,7 @@ Object.assign(D,{
 'Big Basket tab: own invoices by bill size':'বিগ বাস্কেট ট্যাব: নিজের বিল সাইজ অনুযায়ী ইনভয়েস','Coaching tab: own guidance and weekly trend':'কোচিং ট্যাব: নিজের পরামর্শ ও সাপ্তাহিক ধারা','Reports tab: download own report (Excel / PDF)':'রিপোর্ট ট্যাব: নিজের রিপোর্ট ডাউনলোড (Excel / PDF)'
 });
 const P=[
+[/^Resigned staff \((\d+)\)$/,m=>`রিজাইন করা স্টাফ (${m[1]})`],
 [/^Period closed (৳[\d,\-]+) short of target\.$/,m=>`সময় শেষ, টার্গেট থেকে ${m[1]} কম।`],
 [/^From (.+) · scroll left for earlier days$/,m=>`${m[1]} থেকে · আগের দিন দেখতে বামে স্ক্রল করুন`],
 [/^Year · (.+) \(to (.+)\)$/,m=>`বছর · ${window.tr(m[1])} (${m[2]} পর্যন্ত)`],[/^Month · (.+) \(to (.+)\)$/,m=>`মাস · ${m[1]} (${m[2]} পর্যন্ত)`],[/^Day · (.+)$/,m=>`দিন · ${m[1]}`],

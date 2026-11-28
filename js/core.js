@@ -56,7 +56,7 @@ const S={db:null,user:null,dl:null,canEdit:false,isOwner:false,ready:false,loadE
   role:null,empId:null,view:'overview',period:{key:'month',from:null,to:null},drawer:null,modal:null,
   rows:{},asOf:todayISO(),tcache:{},filter:{q:'',section:'',status:'active'},sort:{k:'pct',dir:1},
   bb:{thr:10000,mode:'atleast'},tgtMonth:null,draftW:null,upload:null,busy:null,loginTab:'emp',setup:{step:1},
-  rep:{cols:{photo:true,personal:true,target:true,sales:true,bb:true},groups:{y:false,m:false,d:false},section:'',title:'Staff Performance Summary',slabs:true},
+  rep:{cols:{photo:true,personal:true,target:true,sales:true,bb:true},groups:{y:false,m:false,d:false},withLeft:false,section:'',title:'Staff Performance Summary',slabs:true},
   tgtShowLeft:false,unOpen:false,hscroll:{},
   empTab:'home',explFilter:{emp:'',status:''},justSent:null,wlOpen:{}};
 const cfg=()=>Object.assign({},DEFAULT_CFG,S.cfg||{});
